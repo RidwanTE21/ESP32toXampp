@@ -1,0 +1,75 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// Pin konfigurasi
+#define MQ5_PIN 34     // Pin analog untuk sensor MQ5
+#define BUZZER_PIN 13  // Pin untuk buzzer
+
+// Variabel koneksi Wi-Fi
+const char* ssid = "KONTRAKAN 5 BATANG"; 
+const char* pass = "Akuikhlas";
+
+// Variabel host server
+const char* host = "192.168.2.49";
+
+// Threshold untuk buzzer
+const int threshold = 1200; // Nilai ambang batas untuk aktivasi buzzer
+
+void setup() {
+  Serial.begin(115200);
+
+  // Inisialisasi pin
+  pinMode(MQ5_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW); // Pastikan buzzer mati saat memulai
+
+  // Koneksi Wi-Fi
+  WiFi.begin(ssid, pass);
+  Serial.println("Connecting...");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+
+  // Berhasil terkoneksi
+  Serial.println("Connected");
+}
+
+void loop() {
+  // Membaca data dari sensor MQ5
+  int mq5Value = analogRead(MQ5_PIN);
+  Serial.print("Nilai Sensor MQ5: ");
+  Serial.println(mq5Value);
+
+  // Jika nilai sensor MQ5 melebihi threshold, aktifkan buzzer
+  if (mq5Value > threshold) {
+    digitalWrite(BUZZER_PIN, HIGH); // Aktifkan buzzer
+    Serial.println("Buzzer ON");
+  } else {
+    digitalWrite(BUZZER_PIN, LOW);  // Matikan buzzer
+    Serial.println("Buzzer OFF");
+  }
+
+  // Kirim data ke server
+  WiFiClient client;
+  const int httpPort = 80;
+  if (!client.connect(host, httpPort)) {
+    Serial.println("Connection Failed");
+    return;
+  }
+
+  // Kirim data sensor ke server
+  String link = "http://" + String(host) + "/sensormq5/kirimdata.php?mq5=" + String(mq5Value);
+  
+  HTTPClient http;
+  http.begin(link); // Inisialisasi URL server
+  http.GET(); // Kirim GET request
+
+  // Baca respon setelah berhasil mengirim data
+  String respon = http.getString();
+  Serial.println(respon);
+  http.end();
+
+  // Tunggu 5 detik sebelum membaca ulang
+  delay(5000);
+}
